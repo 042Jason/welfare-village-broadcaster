@@ -48,12 +48,7 @@ cp .env.example .env
 
 ### 3. Python 가상환경 + 의존성
 ```powershell
-# Windows
 .\setup_venv.ps1
-```
-```bash
-# macOS / Linux
-bash setup_venv.sh
 ```
 
 > 💡 **AnySign 등으로 `.env` 편집 불가** 시: 프로젝트 루트에 `API.txt` 파일을 만들고 Gemini 키 한 줄(`AIza...`)만 두면 자동 주입됩니다.
