@@ -2,6 +2,7 @@
 # LangChain 1.x + LangGraph baseline
 langchain>=1.0,<2.0
 langchain-core>=1.0,<2.0
+langchain-google-genai>=2.0
 langchain-openai>=0.3
 langgraph>=0.6
 langgraph-checkpoint>=2.0
@@ -10,6 +11,9 @@ langgraph-checkpoint-sqlite>=2.0
 # Tavily search
 langchain-tavily>=0.2
 tavily-python>=0.5
+
+# Supabase (data warehouse)
+supabase>=2.0
 
 # Data / utils
 pydantic>=2.0
@@ -21,12 +25,9 @@ jupyter>=1.0
 ipykernel>=6.29
 notebook>=7.0
 
-# Optional: graph visualization (PNG via mermaid uses online API, so no extra dep required)
-# pygraphviz  # only if you want offline DOT rendering
-
 # Observability (optional)
 langfuse>=3.0
 
 # Optional TTS / STT extensions (uncomment when needed)
 # openai-whisper>=20231117
-# e
+# elevenlabs>=1.0
