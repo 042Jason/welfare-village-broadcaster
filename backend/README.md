@@ -33,12 +33,13 @@ uvicorn main:app --reload --port 8000
 → http://localhost:8000 접속해서 헬스체크 확인
 → http://localhost:8000/docs 에서 Swagger UI로 테스트
 
-## API 엔드포인트
+## API 엔드포인트 (v1.1.0 — 기능별 분리)
 
-### `POST /api/welfare/invoke` — 1턴
+### 개인형 (어르신 복지 검색)
+
+#### `POST /api/personal/search` — 1턴
 ```json
 {
-  "mode": "personal",
   "thread_id": "user-1234",
   "user_profile": {
     "age": 78,
@@ -50,7 +51,17 @@ uvicorn main:app --reload --port 8000
 }
 ```
 
-### `POST /api/welfare/feedback` — 2턴 (같은 thread_id 사용)
+**응답**
+```json
+{
+  "mode": "personal",
+  "results": [{ "service_name": "...", "support_content": "...", ... }],
+  "presented_text": "안녕하세요 어르신, ...",
+  "raw_count": 23
+}
+```
+
+#### `POST /api/personal/feedback` — 2턴
 ```json
 {
   "thread_id": "user-1234",
@@ -58,10 +69,15 @@ uvicorn main:app --reload --port 8000
 }
 ```
 
-## Railway 배포
+**응답**
+```json
+{
+  "mode": "personal",
+  "satisfaction": "needs_more",
+  "summary": "...",
+  "email_sent": true,
+  "response_text": "..."
+}
+```
 
-1. https://railway.app → New Project → Deploy from GitHub repo
-2. 저장소 선택 → **Root Directory를 `backend`로 설정**
-3. Variables 탭에서 `.env.example`의 키들 등록
-4. Deploy 클릭 → 약 3~5분 후 도메인 발급 (`https://xxx.up.railway.app`)
-5. 헬스체크: `curl https://xxx.up.railway.app/` → `{"service":"복지마을 방송국","status":"ok",...}`
+### 마을방송 (이장님 보�
