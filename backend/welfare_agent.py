@@ -29,8 +29,8 @@ _api_txt = Path("API.txt")
 if _api_txt.exists():
     for _line in _api_txt.read_text(encoding="utf-8", errors="ignore").splitlines():
         _token = _line.strip().split("=")[-1].strip().strip('"').strip("'")
-        if _token.startswith("AIza") and len(_token) > 30:
-            os.environ.setdefault("GOOGLE_API_KEY", _token)
+        if _token.startswith("sk-") and len(_token) > 30:
+            os.environ.setdefault("OPENAI_API_KEY", _token)
             break
 
 # ---------- Supabase ----------
@@ -47,8 +47,8 @@ from langchain_core.tools import tool
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 
-llm = init_chat_model("google_genai:gemini-2.5-flash", temperature=0.3)
-classifier_llm = init_chat_model("google_genai:gemini-2.5-flash", temperature=0.0)
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.3)
+classifier_llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
 
 # ---------- Tavily (선택) ----------
 HAS_TAVILY = bool(os.getenv("TAVILY_API_KEY") and not os.getenv("TAVILY_API_KEY", "").startswith("tvly-..."))
