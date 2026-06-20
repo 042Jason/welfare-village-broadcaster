@@ -3,44 +3,21 @@
 복지마을 방송국 — FastAPI 서버 (Railway 배포용)
 
 기능별 엔드포인트:
-
-  [공통]
   GET  /                          - 헬스체크
 
-  [개인형 — 어르신 복지 검색]
+  [개인형 - 어르신 복지 검색]
   POST /api/personal/search       - 1턴: 프로필+발화 → 검색→자격→안내
-  POST /api/personal/feedback     - 2턴: 피드백 → SMTP 민원전달 또는 추가검색
+  POST /api/personal/feedback     - 2턴: 피드백 → SMTP 민원전달
 
-  [마을방송 — 이장님 보조]
-  POST /api/broadcast/convert     - 행정공지 → 쉬운말 + 방송스크립트 (한 번에)
+  [마을방송 - 이장님 보조]
+  POST /api/broadcast/convert     - 행정공지 → 쉬운말 + 방송스크립트
 
-  [호환용 — Deprecated, 옛 UI 대응]
-  POST /api/welfare/invoke        - mode로 분기
-  POST /api/welfare/feedback      - 피드백
-
-UI 호출 예시:
-  # 개인형
-  fetch("/api/personal/search", {
-    method: "POST",
-    body: JSON.stringify({
-      thread_id: "user-1234",
-      user_profile: {age: 78, region: "충청남도 부여군", ...},
-      message: "받을 수 있는 복지 알려주세요"
-    })
-  })
-
-  # 마을방송
-  fetch("/api/broadcast/convert", {
-    method: "POST",
-    body: JSON.stringify({
-      thread_id: "broadcast-001",
-      notice_text: "2026년 노인 일자리 사업 신청 안내...",
-      dialect: "chungcheong"   // optional
-    })
-  })
+  [Deprecated]
+  POST /api/welfare/invoke        - mode로 분기 (옛 호환)
+  POST /api/welfare/feedback      - 피드백 (옛 호환)
 """
 import os
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,7 +32,6 @@ app = FastAPI(
     version="1.1.0",
 )
 
-# CORS - 프론트엔드 도메인 추가
 _allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -72,10 +48,10 @@ class UserProfile(BaseModel):
     region: str = Field("", description="거주 지역 (예: '충청남도 부여군')")
     monthly_income: Optional[int] = Field(None, description="월 소득(원)")
     has_disability: bool = False
-    is_rural: Optional[bool] = Field(None, description="None이면 region에서 자동 추론")
+    is_rural: Optional[bool] = None
     is_single_household: bool = False
     is_single_parent: bool = False
-    dialect: Optional[str] = Field(None, description="'chungcheong' | 'jeolla' (마을방송용)")
+    dialect: Optional[str] = None
 
 
 class WelfareItem(BaseModel):
@@ -95,49 +71,47 @@ class WelfareItem(BaseModel):
     tavily_augment: Optional[Dict[str, Any]] = None
 
 
-# ========== 개인형 모드 스키마 ==========
+# ========== 개인형 스키마 ==========
 class PersonalSearchRequest(BaseModel):
-    thread_id: str = Field(..., description="같은 사용자의 연속 대화 식별자")
+    thread_id: str
     user_profile: UserProfile
-    message: str = Field(..., description="어르신 발화 (예: '받을 수 있는 복지 알려주세요')")
+    message: str
 
 
 class PersonalSearchResponse(BaseModel):
-    mode: Literal["personal"] = "personal"
-    results: list[WelfareItem] = Field(default_factory=list, description="자격 충족 복지사업 목록")
-    presented_text: str = Field("", description="화면/음성용 친근한 안내문")
-    raw_count: int = Field(0, description="검색 단계 원본 건수")
+    mode: str = "personal"
+    results: List[WelfareItem] = Field(default_factory=list)
+    presented_text: str = ""
+    raw_count: int = 0
 
 
 class PersonalFeedbackRequest(BaseModel):
-    thread_id: str = Field(..., description="search 호출 때 쓴 것과 동일한 ID")
-    feedback: str = Field(..., description="어르신 피드백 (예: '괜찮네요' / '이런 거 말고 손주 학비 지원')")
+    thread_id: str
+    feedback: str
 
 
 class PersonalFeedbackResponse(BaseModel):
-    mode: Literal["personal"] = "personal"
-    satisfaction: str = Field("", description="'satisfied' | 'unsatisfied' | 'needs_more'")
-    summary: str = Field("", description="피드백 분석 요약")
-    email_sent: bool = Field(False, description="SMTP 민원 발송 여부")
-    response_text: str = Field("", description="어르신에게 보여줄 응답")
+    mode: str = "personal"
+    satisfaction: str = ""
+    summary: str = ""
+    email_sent: bool = False
+    response_text: str = ""
 
 
-# ========== 마을방송 모드 스키마 ==========
+# ========== 마을방송 스키마 ==========
 class BroadcastConvertRequest(BaseModel):
-    thread_id: str = Field(..., description="방송 변환 세션 식별자")
-    notice_text: str = Field(..., description="원본 행정 공지문 (한자어/외래어 포함)")
-    dialect: Optional[Literal["chungcheong", "jeolla", "standard"]] = Field(
-        "standard", description="방언 옵션"
-    )
+    thread_id: str
+    notice_text: str
+    dialect: Optional[str] = "standard"
 
 
 class BroadcastConvertResponse(BaseModel):
-    mode: Literal["broadcast"] = "broadcast"
-    easy_text: str = Field("", description="어르신 친화 쉬운말 변환문")
-    broadcast_text: str = Field("", description="30초 마을 스피커용 스크립트 (90~130자)")
+    mode: str = "broadcast"
+    easy_text: str = ""
+    broadcast_text: str = ""
 
 
-# ========== 호환용 스키마 (Deprecated) ==========
+# ========== Legacy ==========
 class InvokeRequest(BaseModel):
     mode: Literal["personal", "broadcast"]
     thread_id: str
@@ -147,7 +121,7 @@ class InvokeRequest(BaseModel):
 
 class InvokeResponse(BaseModel):
     mode: str
-    results: list[WelfareItem] = []
+    results: List[WelfareItem] = Field(default_factory=list)
     presented_text: str = ""
     easy_text: str = ""
     broadcast_text: str = ""
@@ -166,16 +140,160 @@ class FeedbackResponse(BaseModel):
     response_text: str = ""
 
 
-# ========== 헬퍼 ==========
+# ========== Helpers ==========
 def _extract_presented(result: dict, mode: str) -> str:
-    """그래프 결과에서 사용자에게 보여줄 텍스트 추출"""
-    for m in reversed(result.get("messages", [])):
-        if m.__class__.__name__ == "AIMessage" and (
-            mode == "personal" and "안녕하세요" in m.content
-            or mode == "broadcast" and "방송" in m.content
-        ):
-            return m.content
-    return result["messages"][-1].content if result.get("messages") else ""
+    msgs = result.get("messages", [])
+    for m in reversed(msgs):
+        if m.__class__.__name__ != "AIMessage":
+            continue
+        c = m.content
+        if mode == "personal" and "안녕하세요" in c:
+            return c
+        if mode == "broadcast" and "방송" in c:
+            return c
+    return msgs[-1].content if msgs else ""
 
 
 def _initial_state(mode: str, user_profile: dict, message: str) -> dict:
+    return {
+        "mode": mode,
+        "user_profile": user_profile,
+        "messages": [HumanMessage(content=message)],
+        "raw_services": [],
+        "eligible_benefits": [],
+        "presented": False,
+        "satisfaction": "",
+        "email_sent": False,
+        "easy_text": "",
+        "broadcast_text": "",
+        "feedback_summary": "",
+    }
+
+
+# ========== Endpoints ==========
+@app.get("/")
+def health():
+    return {
+        "service": "복지마을 방송국",
+        "status": "ok",
+        "version": "1.1.0",
+        "endpoints": {
+            "personal": [
+                "POST /api/personal/search",
+                "POST /api/personal/feedback",
+            ],
+            "broadcast": [
+                "POST /api/broadcast/convert",
+            ],
+            "legacy": [
+                "POST /api/welfare/invoke (deprecated)",
+                "POST /api/welfare/feedback (deprecated)",
+            ],
+        },
+    }
+
+
+# ----- 개인형 -----
+@app.post("/api/personal/search", response_model=PersonalSearchResponse, tags=["personal"])
+def personal_search(req: PersonalSearchRequest):
+    initial = _initial_state(
+        mode="personal",
+        user_profile=req.user_profile.model_dump(exclude_none=True),
+        message=req.message,
+    )
+    try:
+        result = graph.invoke(initial, config=cfg(req.thread_id))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"검색 실패: {e}")
+
+    return PersonalSearchResponse(
+        results=result.get("eligible_benefits", []),
+        presented_text=_extract_presented(result, "personal"),
+        raw_count=len(result.get("raw_services", [])),
+    )
+
+
+@app.post("/api/personal/feedback", response_model=PersonalFeedbackResponse, tags=["personal"])
+def personal_feedback(req: PersonalFeedbackRequest):
+    try:
+        result = graph.invoke(
+            {"messages": [HumanMessage(content=req.feedback)]},
+            config=cfg(req.thread_id),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"피드백 처리 실패: {e}")
+
+    msgs = result.get("messages", [])
+    return PersonalFeedbackResponse(
+        satisfaction=result.get("satisfaction", ""),
+        summary=result.get("feedback_summary", ""),
+        email_sent=result.get("email_sent", False),
+        response_text=msgs[-1].content if msgs else "",
+    )
+
+
+# ----- 마을방송 -----
+@app.post("/api/broadcast/convert", response_model=BroadcastConvertResponse, tags=["broadcast"])
+def broadcast_convert(req: BroadcastConvertRequest):
+    initial = _initial_state(
+        mode="broadcast",
+        user_profile={"dialect": req.dialect or "standard"},
+        message=req.notice_text,
+    )
+    try:
+        result = graph.invoke(initial, config=cfg(req.thread_id))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"방송 변환 실패: {e}")
+
+    return BroadcastConvertResponse(
+        easy_text=result.get("easy_text", ""),
+        broadcast_text=result.get("broadcast_text", ""),
+    )
+
+
+# ----- Legacy -----
+@app.post("/api/welfare/invoke", response_model=InvokeResponse, tags=["legacy"])
+def invoke_legacy(req: InvokeRequest):
+    initial = _initial_state(
+        mode=req.mode,
+        user_profile=req.user_profile.model_dump(exclude_none=True),
+        message=req.message,
+    )
+    try:
+        result = graph.invoke(initial, config=cfg(req.thread_id))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Graph invoke failed: {e}")
+
+    return InvokeResponse(
+        mode=req.mode,
+        results=result.get("eligible_benefits", []),
+        presented_text=_extract_presented(result, req.mode),
+        easy_text=result.get("easy_text", ""),
+        broadcast_text=result.get("broadcast_text", ""),
+        raw_count=len(result.get("raw_services", [])),
+    )
+
+
+@app.post("/api/welfare/feedback", response_model=FeedbackResponse, tags=["legacy"])
+def feedback_legacy(req: FeedbackRequest):
+    try:
+        result = graph.invoke(
+            {"messages": [HumanMessage(content=req.feedback)]},
+            config=cfg(req.thread_id),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Graph invoke failed: {e}")
+
+    msgs = result.get("messages", [])
+    return FeedbackResponse(
+        satisfaction=result.get("satisfaction", ""),
+        summary=result.get("feedback_summary", ""),
+        email_sent=result.get("email_sent", False),
+        response_text=msgs[-1].content if msgs else "",
+    )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
