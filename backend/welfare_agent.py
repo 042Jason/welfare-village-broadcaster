@@ -47,7 +47,7 @@ from langchain_core.tools import tool
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 
-llm = init_chat_model("openai:gpt-4o-mini", temperature=0.3)
+llm = init_chat_model("openai:gpt-5.5", temperature=0.3)
 classifier_llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
 
 # ---------- Tavily (선택) ----------
